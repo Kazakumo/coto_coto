@@ -427,6 +427,447 @@ end
 
 ---
 
+## 10. テスト戦略
+
+### 10.1 テスト駆動開発（TDD）のプロセス
+
+**タスク実装フロー**:
+1. **テスト設計書の作成** → チケットに記載
+2. **赤（Red）**: テストを書く（失敗を確認）
+3. **緑（Green）**: 最小限の実装でテスト合格
+4. **リファクタリング（Refactor）**: コードを改善
+5. **カバレッジ検証**: C1 100% を確認
+
+### 10.2 テスト設計書の要件
+
+**各チケットに記載すべき項目**:
+
+```markdown
+## テスト設計書
+
+### 対象機能
+move_card/3 - カードを新しい座標に移動
+
+### テストケース一覧
+
+#### 正常系
+- [ ] T1: 有効な座標への移動成功
+- [ ] T2: 複数カード同時移動（並行処理）
+- [ ] T3: 境界値（0, 最大値）への移動
+- [ ] T4: 小数座標への移動
+
+#### 異常系
+- [ ] T5: 存在しないカード ID
+- [ ] T6: 無効な座標（負数）
+- [ ] T7: 空のパラメータ
+- [ ] T8: 型不正（文字列座標など）
+
+#### エッジケース
+- [ ] T9: 同じ座標への移動（重複）
+- [ ] T10: 高速連続呼び出し
+- [ ] T11: データベース接続切断時
+- [ ] T12: 同時アクセス競合
+
+### カバレッジ目標
+- **C1（Statement）**: 100%
+- **実行パス網羅**: 全分岐をカバー
+```
+
+### 10.3 テストツール・設定
+
+```elixir
+# mix.exs
+defp project do
+  [
+    # ...
+    preferred_cli_env: [
+      test: :test,
+      "test.coverage": :test
+    ]
+  ]
+end
+
+defp deps do
+  [
+    # テスト用
+    {:phoenix_live_view_test, "~> 0.0", only: :test},
+    {:lazy_html, "~> 0.0"},
+    {:excoveralls, "~> 0.0", only: :test},
+
+    # Mock / Stub
+    {:mox, "~> 1.0", only: :test},
+
+    # テスト データ生成
+    {:ex_machina, "~> 2.0", only: :test},
+  ]
+end
+```
+
+### 10.4 カバレッジ検証スクリプト
+
+```bash
+# mix.exs に alias 追加
+defp aliases do
+  [
+    "test.coverage": [
+      "coveralls.html",
+      "coveralls.detail"
+    ]
+  ]
+end
+```
+
+実行:
+```bash
+mix test.coverage  # HTML レポート生成
+mix test --failed  # 失敗したテストのみ再実行
+```
+
+### 10.5 テストの分類
+
+#### 単体テスト（Unit Tests）
+```elixir
+# test/coto_coto/cards_test.exs
+defmodule CotoCoto.CardsTest do
+  use ExUnit.Case, async: true
+  doctest CotoCoto.Cards
+
+  describe "move_card/3" do
+    test "有効な座標にカードを移動する" do
+      card = insert!(:card)
+      {:ok, updated} = Cards.move_card(card.id, 100.0, 200.0)
+      assert updated.x == 100.0
+      assert updated.y == 200.0
+    end
+
+    # その他のテストケース...
+  end
+end
+```
+
+#### 統合テスト（Integration Tests）
+```elixir
+# test/coto_coto_web/live/canvas_live_test.exs
+defmodule CotoCotoWeb.CanvasLiveTest do
+  use CotoCotoWeb.ConnCase
+  import Phoenix.LiveViewTest
+
+  test "ドラッグでカード位置が更新される" do
+    {:ok, view, _html} = live(conn, "/canvas/#{workspace.id}")
+
+    html = render_click(view, "move_card", %{
+      "card_id" => card.id,
+      "x" => 150,
+      "y" => 250
+    })
+
+    assert has_element?(view, "[data-testid='card-#{card.id}'][style*='left: 150px']")
+  end
+end
+```
+
+#### システムテスト（System Tests）- 未実装（Phase 2）
+```elixir
+# test/coto_coto_web/features/canvas_feature_test.exs
+# PlayWright や Wallaby で E2E テスト
+```
+
+---
+
+## 11. エラーハンドリング設計
+
+### 11.1 エラー分類体系
+
+エラーを3つのカテゴリに分類し、各々の取り扱いを定義します。
+
+#### A. 正常なエラー（Expected Errors）
+**定義**: ユーザーの不正操作や、ビジネスロジック上の制約違反
+
+**例**:
+- 存在しないリソースへのアクセス
+- バリデーション失敗（不正な座標値）
+- 権限不足（他人のワークスペース編集）
+- 競合エラー（すでに削除されたカード）
+
+**取り扱い**:
+- LiveView で `{:error, changeset}` で返す
+- ユーザーに分かりやすいエラーメッセージを表示
+- ログは info レベル（多数発生予想）
+
+```elixir
+def move_card(card_id, x, y) do
+  with card <- Repo.get(Card, card_id) do
+    case card do
+      nil ->
+        {:error, "カードが見つかりません"}
+
+      card ->
+        card
+        |> Card.changeset(%{x: x, y: y})
+        |> Repo.update()
+    end
+  end
+end
+```
+
+#### B. 異常なエラー（Abnormal Errors）
+**定義**: バグ、想定外の状態、ロジックエラー
+
+**例**:
+- Database スキーマ不一致
+- メモリリーク（GenServer 状態肥大化）
+- データベース接続プール枯渇
+- 計算オーバーフロー
+
+**取り扱い**:
+- `Logger.error/2` で記録
+- Sentry / Rollbar へ送信（本番環境）
+- ユーザーには「システムエラーが発生しました」と表示
+- 管理者アラート発動
+
+```elixir
+def move_card(card_id, x, y) do
+  try do
+    # 実装...
+  rescue
+    e in Ecto.ConstraintError ->
+      Logger.error("Database constraint error: #{inspect(e)}", card_id: card_id)
+      {:error, "システムエラーが発生しました"}
+  catch
+    :exit, reason ->
+      Logger.error("Process exit: #{inspect(reason)}")
+      {:error, "システムエラーが発生しました"}
+  end
+end
+```
+
+#### C. 想定外のエラー（Unexpected Errors）
+**定義**: 外部 API、ネットワーク、リソース枯渇による予測不可能なエラー
+
+**例**:
+- ネットワークタイムアウト（埋め込み API）
+- Redis 接続切断
+- ディスク容量不足
+- CPU 過負荷
+
+**取り扱い**:
+- リトライ戦略（Exponential Backoff）
+- 適切なタイムアウト設定
+- フェイルセーフ（デグラデーション）
+- ログと監視（Prometheus メトリクス）
+
+```elixir
+def generate_embedding(text) do
+  Req.get!(embeddings_url, json: %{text: text})
+  |> then(&{:ok, &1.body})
+rescue
+  e in Req.TransportError ->
+    Logger.warn("Embedding API timeout, fallback to default", error: inspect(e))
+    {:error, :timeout, use_fallback: true}
+end
+```
+
+### 11.2 エラーパターン洗い出し（全機能共通）
+
+**各コンテキストで洗い出すべきエラー**:
+
+#### Cards コンテキスト
+
+```markdown
+### move_card/3
+
+#### 正常なエラー
+- ERR001: カードが存在しない
+- ERR002: 座標値が範囲外（負数）
+- ERR003: 座標値が上限超過（Canvas サイズ）
+- ERR004: ワークスペース削除済み（親リソース喪失）
+- ERR005: ユーザー権限なし
+
+#### 異常なエラー
+- ERR101: Ecto スキーマ変更不備
+- ERR102: Database 接続エラー
+- ERR103: メモリ不足（GenServer 状態肥大化）
+
+#### 想定外のエラー
+- ERR201: Database タイムアウト
+- ERR202: Disk I/O エラー
+- ERR203: Z-Index GenServer クラッシュ
+
+### Response Mapping
+
+| エラーコード | HTTPStatus | LiveView応答 | ログレベル | ユーザー表示 |
+|-----------|-----------|-----------|----------|-----------|
+| ERR001-005 | 400, 403, 404 | {:error, message} | info | 日本語メッセージ |
+| ERR101-103 | 500 | {:error, "システムエラー"} | error | generic |
+| ERR201-203 | 503 | {:error, "一時的なエラー"} | warn | リトライ指示 |
+```
+
+### 11.3 エラーハンドリング実装テンプレート
+
+```elixir
+# lib/coto_coto/error_handler.ex
+defmodule CotoCoto.ErrorHandler do
+  @type error_class :: :expected | :abnormal | :unexpected
+  @type error_info :: %{
+    code: String.t(),
+    class: error_class,
+    message: String.t(),
+    context: map()
+  }
+
+  def classify_error(error) do
+    case error do
+      {:not_found, _} -> :expected
+      {:validation, _} -> :expected
+      {:unauthorized, _} -> :expected
+      {:database_error, _} -> :abnormal
+      {:timeout, _} -> :unexpected
+      _ -> :unexpected
+    end
+  end
+
+  def handle_error(error, context \\ %{}) do
+    class = classify_error(error)
+
+    case class do
+      :expected ->
+        log_expected(error, context)
+        {:error, user_message(error)}
+
+      :abnormal ->
+        log_abnormal(error, context)
+        send_alert(error, context)
+        {:error, "システムエラーが発生しました"}
+
+      :unexpected ->
+        log_unexpected(error, context)
+        start_retry(error, context)
+        {:error, "一時的なエラーが発生しました。しばらく後にお試しください"}
+    end
+  end
+
+  defp log_expected(error, context) do
+    Logger.info("Expected error: #{inspect(error)}", context)
+  end
+
+  defp log_abnormal(error, context) do
+    Logger.error("Abnormal error: #{inspect(error)}", context)
+  end
+
+  defp log_unexpected(error, context) do
+    Logger.warn("Unexpected error: #{inspect(error)}", context)
+  end
+
+  defp send_alert(error, context) do
+    # Sentry / Rollbar へ送信
+    {:ok, _} = Sentry.capture_exception(error, extra: context)
+  end
+
+  defp start_retry(error, context) do
+    # Task.Supervisor で非同期リトライ
+    Task.Supervisor.start_child(
+      CotoCoto.TaskSupervisor,
+      fn -> retry_with_backoff(error, context) end
+    )
+  end
+
+  defp retry_with_backoff(error, context, attempt \\ 0, max_attempts \\ 3) do
+    if attempt >= max_attempts do
+      Logger.error("Retry exhausted: #{inspect(error)}")
+    else
+      :timer.sleep(:math.pow(2, attempt) * 1000 |> round())
+      # リトライ処理...
+    end
+  end
+
+  defp user_message(error) do
+    case error do
+      {:not_found, resource} -> "#{resource}が見つかりません"
+      {:validation, field} -> "#{field}が無効です"
+      {:unauthorized, _} -> "このアクションを実行する権限がありません"
+      _ -> "エラーが発生しました"
+    end
+  end
+end
+```
+
+### 11.4 エラーハンドリング設計書テンプレート
+
+**各チケットに記載すべき項目**:
+
+```markdown
+## エラーハンドリング設計書
+
+### エラーパターン一覧
+
+#### 正常なエラー（Expected）
+| コード | エラー内容 | HTTP Status | 対応 |
+|------|---------|-----------|------|
+| ERR001 | カード未発見 | 404 | ユーザーに通知、戻る |
+| ERR002 | 座標値無効 | 400 | バリデーションメッセージ表示 |
+| ERR003 | 権限なし | 403 | アクセス拒否メッセージ |
+
+#### 異常なエラー（Abnormal）
+| コード | エラー内容 | 原因 | 対応 |
+|------|---------|------|------|
+| ERR101 | DB スキーマエラー | バグ / 不整合 | alert + ログ記録 |
+| ERR102 | Pool 枯渇 | コネクション漏洩 | alert + 自動再起動 |
+
+#### 想定外のエラー（Unexpected）
+| コード | エラー内容 | 原因 | 対応 |
+|------|---------|------|------|
+| ERR201 | API タイムアウト | ネットワーク | リトライ（Exponential Backoff） |
+| ERR202 | Redis 接続不可 | インフラ | フェイルセーフ + ログ |
+
+### テスト設計
+- [ ] 各エラーパターンをモック / スタブで発生させたテスト
+- [ ] エラーメッセージの正確性確認
+- [ ] リトライ動作確認
+- [ ] ログ出力確認
+```
+
+---
+
+## 12. タスク完了の要件
+
+### 12.1 実装フェーズ
+
+各機能実装時は以下を **すべて完了** すること：
+
+1. **テスト設計書作成** → チケットコメントに記載
+   - テストケース一覧（正常系・異常系・エッジケース）
+   - カバレッジ目標（C1 100%）
+
+2. **エラーハンドリング設計** → チケットコメントに記載
+   - エラーパターン洗い出し（正常・異常・想定外）
+   - 各エラーの取り扱い規定
+
+3. **TDD で実装**
+   - テスト → 実装 → リファクタリング
+
+4. **C1 100% 達成**
+   ```bash
+   mix test.coverage  # すべてのパスをカバー
+   ```
+
+5. **すべてのテストが PASS**
+   ```bash
+   mix test  # 0 failures
+   ```
+
+### 12.2 PR マージ条件
+
+- [ ] テスト設計書がチケットに記載
+- [ ] エラーハンドリング設計書がチケットに記載
+- [ ] `mix precommit` パス（形式・型チェック・テスト）
+- [ ] C1 100% 達成確認
+- [ ] Dialyzer 型チェックパス
+- [ ] コードレビュー承認
+- [ ] チケット `Closes #<NUMBER>` で参照
+
+---
+
 ## ドキュメント履歴
 
 - **2026-03-07**: Issue #2 初版 - 技術選定・アーキテクチャ決定
+- **2026-03-07**: テスト戦略・エラーハンドリング設計追記

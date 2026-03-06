@@ -155,11 +155,40 @@ This project follows strict guidelines documented in **AGENTS.md** - refer there
 
 ## Development Workflow
 
+### 1. Issue Preparation
+1. **Create issue** on GitHub with requirements
+2. **Attach test design** (in issue comments): test cases, edge cases, C1 100% target
+3. **Attach error handling design** (in issue comments): error patterns (expected/abnormal/unexpected), handling rules
+
+### 2. Implementation (TDD)
 1. **Create feature branch**: `git switch -c feat/issue-<NUMBER>` or `fix/issue-<NUMBER>`
-2. **TDD approach**: Write tests first when possible (mix test driven development is mandatory per AGENTS.md)
-3. **Develop incrementally**: Make small, logical commits
-4. **Run quality checks**: `mix precommit` before pushing (compiles with warnings-as-errors, checks formatting, runs tests)
-5. **Commit message format**: `feat(issue-<NUMBER>): short description` (conventional commits)
+2. **Write tests first** (per ARCHITECTURE_DECISIONS.md test strategy)
+3. **Develop incrementally**: Small, logical commits
+4. **Run quality checks**: `mix precommit` before pushing
+
+### 3. Testing Requirements
+- **Test coverage**: C1 100% (Statement Coverage) - mandatory for task completion
+- **Test categories**: Unit tests (ExUnit), Integration tests (LiveViewTest), System tests (Phase 2)
+- **Test tools**: lazy_html for assertions, ex_machina for factories
+- **Verification**: `mix test.coverage` must show 100%
+
+### 4. Error Handling
+- **Classify errors**: Expected (バリデーション) / Abnormal (バグ) / Unexpected (外部API)
+- **Design first**: Document all error patterns in issue before implementing
+- **Implement per spec**: Map errors to HTTP status, user messages, logging levels
+- **Test errors**: Mock/stub external dependencies to trigger error paths
+
+### 5. Commit & PR
+- **Commit format**: `feat(issue-<NUMBER>): short description` (conventional commits)
+- **PR references**: Include `Closes #<NUMBER>` in PR body
+- **Merge checklist**:
+  - [ ] Test design documented in issue
+  - [ ] Error handling design documented in issue
+  - [ ] All tests passing (0 failures)
+  - [ ] C1 100% achieved
+  - [ ] `mix precommit` passes (format, type check, tests)
+  - [ ] Dialyzer type checking passes
+  - [ ] Code review approved
 
 ## Configuration & Environment
 
