@@ -1,6 +1,17 @@
 # CotoCoto 開発ワークフロー
 
-このファイルは、CotoCotoプロジェクトの開発プロセス、チケット管理、GitHubとの連携方法を定義します。
+**このドキュメントについて**: CotoCotoプロジェクトの開発プロセス、チケット管理、GitHubとの連携方法の実行手順です。
+
+**役割**: 実装者向けの実行書
+**言語**: 日本語
+
+**読み方**:
+- GitHub Issue の作成方法を知りたい → 1. Issue 作成フェーズ
+- ブランチを作成・PR を作成するまでの流れを知りたい → 3. Issue 開発フェーズ ～ 5. Issue クローズ
+- コーディング規則を知りたい → CLAUDE.md / AGENTS.md を参照
+- テスト戦略・エラーハンドリング設計を知りたい → ARCHITECTURE_DECISIONS.md を参照
+
+---
 
 ## 原則
 
@@ -61,17 +72,19 @@ gh issue edit <ISSUE_NUMBER> --state open
 
 **ブランチ名の規則**:
 ```
-feat/issue-<NUMBER>-<短い説明>
-fix/issue-<NUMBER>-<短い説明>
-docs/issue-<NUMBER>-<短い説明>
+feat/issue-<NUMBER>
+fix/issue-<NUMBER>
+docs/issue-<NUMBER>
 ```
 
 例：
 ```
-feat/issue-1-tech-selection
-fix/issue-5-card-drag-bug
-docs/issue-2-schema-design
+feat/issue-1
+fix/issue-5
+docs/issue-2
 ```
+
+**注**: ブランチ名に詳細説明は含めません。詳細は Issue タイトル・説明で管理します。
 
 ### 4. 進捗更新
 
