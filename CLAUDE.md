@@ -1,6 +1,17 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**このドキュメントについて**: CotoCotoプロジェクトの概要、アーキテクチャ、開発ワークフローのガイダンスです。
+
+**役割**: プロジェクト全体の指針・参照書
+**言語**: English（国際スタンダード）
+
+**読み方**:
+- プロジェクト全体の概要を知りたい → Project Overview、Architecture Overview
+- 実装の具体的なコーディング規則を知りたい → AGENTS.md を参照
+- 実装のテスト戦略・エラーハンドリング設計を知りたい → ARCHITECTURE_DECISIONS.md を参照
+- GitHub Issue・Branch・PR のワークフローを知りたい → WORKFLOW.md を参照
+
+---
 
 ## Project Overview
 
@@ -219,12 +230,36 @@ Since CotoCoto is multi-user in real-time:
 3. **Z-Index State**: Currently managed per-canvas. Will eventually use a GenServer to maintain order (recent = top, important = top, old = bottom).
 4. **Optimistic UI**: For drag-and-drop, update position client-side immediately, confirm to server when drag ends. This gives low-latency feel even on high-latency networks.
 
-## When to Consult AGENTS.md
+## Documentation Reference Guide
 
-AGENTS.md contains the authoritative, comprehensive rules for this project. Consult it for:
-- Anything about Phoenix v1.8 patterns
-- LiveView-specific behaviors
-- Ecto & database patterns
-- HEEx template syntax
-- Testing approaches
-- JavaScript hook patterns
+This project uses **4 key documents** to provide comprehensive guidance:
+
+### 📄 CLAUDE.md（このファイル）
+- **目的**: プロジェクト概要・アーキテクチャ・必須コマンド
+- **用途**: 全体像を理解したいときに参照
+
+### 📄 AGENTS.md
+- **目的**: コーディング規則（Phoenix v1.8・Elixir・Ecto など）
+- **用途**: 実装時のコーディングガイドラインが必要なときに参照
+- **参照先**: `AGENTS.md` contains the authoritative rules for:
+  - Phoenix v1.8 patterns (layouts, forms, inputs, LiveView)
+  - Elixir conventions (immutability, pattern matching, guards)
+  - Ecto best practices (preloading, changesets, migrations)
+  - HEEx template rules (interpolation, class lists, conditionals)
+  - LiveView patterns (streams, hooks, event handling)
+  - Testing with Phoenix.LiveViewTest and LazyHTML
+  - JavaScript hook patterns
+
+### 📄 ARCHITECTURE_DECISIONS.md
+- **目的**: アーキテクチャ決定・テスト戦略・エラーハンドリング設計
+- **用途**: テスト設計・エラーハンドリング設計が必要なときに参照
+- **参照先**: ARCHITECTURE_DECISIONS.md contains:
+  - Architectural decisions (Phoenix.PubSub, GenServer, Nx.Serving など)
+  - Test strategy and design (TDD process, test categories, coverage requirements - C1 100%)
+  - Error handling design (expected/abnormal/unexpected classification)
+  - Task completion requirements (merge checklist)
+
+### 📄 WORKFLOW.md（.claude/WORKFLOW.md）
+- **目的**: GitHub Issue・Branch・PR の実行ワークフロー
+- **用途**: 開発プロセスの具体的な手順が必要なときに参照
+- **言語**: 日本語

@@ -1,4 +1,18 @@
-This is a web application written using the Phoenix web framework.
+**このドキュメントについて**: CotoCotoプロジェクトのコーディング規則・ガイドラインです。
+
+**役割**: コーディングリファレンス
+**言語**: English（テクニカルリファレンス）
+
+**読み方**:
+- Phoenix v1.8 の実装パターンを知りたい → ## Phoenix v1.8 guidelines
+- Elixir のコーディング規則を知りたい → ## Elixir guidelines
+- Ecto のベストプラクティスを知りたい → ## Ecto Guidelines
+- HEEx テンプレート構文を知りたい → ## Phoenix HTML guidelines
+- LiveView の実装パターンを知りたい → ## Phoenix LiveView guidelines
+- テストの書き方を知りたい → ## Test guidelines
+- テスト戦略・エラーハンドリング設計を知りたい → ARCHITECTURE_DECISIONS.md を参照
+
+---
 
 ## Project guidelines
 
@@ -445,5 +459,30 @@ And **never** do this:
 - You are FORBIDDEN from accessing the changeset in the template as it will cause errors
 - **Never** use `<.form let={f} ...>` in the template, instead **always use `<.form for={@form} ...>`**, then drive all form references from the form assign as in `@form[:field]`. The UI should **always** be driven by a `to_form/2` assigned in the LiveView module that is derived from a changeset
 <!-- phoenix:liveview-end -->
+
+---
+
+## When to Reference Other Documents
+
+This document covers **coding rules and patterns**. For other aspects of development, refer to:
+
+### 📄 ARCHITECTURE_DECISIONS.md
+**When**: You need to understand test strategy, error handling design, or architectural decisions
+- Test strategy and TDD process (10. テスト戦略)
+- Error handling design and classification (11. エラーハンドリング設計)
+- Task completion requirements (12. タスク完了の要件)
+- Library selections and scalability strategy (1-9)
+
+### 📄 CLAUDE.md
+**When**: You need a project overview or list of essential commands
+- Project overview and key technologies
+- Architecture overview and directory structure
+- Essential commands and configurations
+
+### 📄 WORKFLOW.md
+**When**: You need to understand GitHub Issue, branch, and PR workflow
+- Issue creation process
+- Branch naming and development phase
+- PR merge process and checklist
 
 <!-- usage-rules-end -->
