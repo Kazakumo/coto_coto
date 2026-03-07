@@ -175,7 +175,8 @@ This project follows strict guidelines documented in **AGENTS.md** - refer there
 1. **Create feature branch**: `git switch -c feat/issue-<NUMBER>` or `fix/issue-<NUMBER>`
 2. **Write tests first** (per ARCHITECTURE_DECISIONS.md test strategy)
 3. **Develop incrementally**: Small, logical commits
-4. **Run quality checks**: `mix precommit` before pushing
+4. **Log decisions in issue comments** (per WORKFLOW.md): Multiple design approaches, trade-off analysis, final decision rationale
+5. **Run quality checks**: `mix precommit` before pushing
 
 ### 3. Testing Requirements
 - **Test coverage**: C1 100% (Statement Coverage) - mandatory for task completion
@@ -195,6 +196,7 @@ This project follows strict guidelines documented in **AGENTS.md** - refer there
 - **Merge checklist**:
   - [ ] Test design documented in issue
   - [ ] Error handling design documented in issue
+  - [ ] **Design decisions documented in issue comments** (multiple approaches, trade-off analysis, final decision rationale per WORKFLOW.md)
   - [ ] All tests passing (0 failures)
   - [ ] C1 100% achieved
   - [ ] `mix precommit` passes (format, type check, tests)
