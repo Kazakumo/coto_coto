@@ -276,12 +276,13 @@ lib/coto_coto/
 │
 ├── schemas/                # Ecto スキーマ
 │   ├── user.ex
+│   ├── account.ex          # OAuthプロバイダー連携
 │   ├── workspace.ex
 │   ├── card.ex
 │   └── card_embedding.ex
 │
 ├── contexts/               # ビジネスロジック（コンテキスト）
-│   ├── accounts.ex         # ユーザー認証
+│   ├── accounts.ex         # ユーザー認証（Google OAuth + JWT）
 │   ├── workspaces.ex       # ワークスペース管理
 │   ├── cards.ex            # カード操作
 │   ├── embeddings.ex       # ベクトル埋め込み

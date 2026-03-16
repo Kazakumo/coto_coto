@@ -1,0 +1,44 @@
+erDiagram
+    USERS ||--o{ WORKSPACES : creates
+    USERS ||--o{ COLLABORATIONS : "belongs_to"
+    WORKSPACES ||--o{ CARDS : contains
+    WORKSPACES ||--o{ COLLABORATIONS : "shared_with"
+
+    USERS {
+        uuid id PK
+        string email UK "NOT NULL, UNIQUE"
+        string hashed_password "NOT NULL"
+        string name "NOT NULL"
+        timestamp inserted_at "NOT NULL"
+        timestamp updated_at "NOT NULL"
+    }
+
+    WORKSPACES {
+        uuid id PK
+        uuid user_id FK "NOT NULL, FK→users.id ON DELETE CASCADE"
+        string title "NOT NULL"
+        string description "nullable"
+        timestamp inserted_at "NOT NULL"
+        timestamp updated_at "NOT NULL"
+    }
+
+    CARDS {
+        uuid id PK
+        uuid workspace_id FK "NOT NULL, FK→workspaces.id ON DELETE CASCADE"
+        string title "NOT NULL"
+        text content "nullable"
+        float x "NOT NULL, DEFAULT 0.0"
+        float y "NOT NULL, DEFAULT 0.0"
+        integer z "NOT NULL, DEFAULT 0"
+        timestamp inserted_at "NOT NULL"
+        timestamp updated_at "NOT NULL"
+    }
+
+    COLLABORATIONS {
+        uuid id PK
+        uuid workspace_id FK "NOT NULL, FK→workspaces.id ON DELETE CASCADE"
+        uuid user_id FK "NOT NULL, FK→users.id ON DELETE CASCADE"
+        string role "NOT NULL, DEFAULT 'viewer'"
+        timestamp inserted_at "NOT NULL"
+        timestamp updated_at "NOT NULL"
+    }
