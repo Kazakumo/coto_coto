@@ -1,7 +1,7 @@
 # CotoCoto Database Schema Design
 
 **言語**: English
-**最終更新**: 2026-03-07
+**最終更新**: 2026-03-17
 **ステータス**: Design Documentation (実装フェーズ前設計書)
 
 ---
@@ -42,7 +42,6 @@
 CREATE TABLE users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
-  hashed_password text NOT NULL,
   name text NOT NULL,
   inserted_at timestamp NOT NULL DEFAULT now(),
   updated_at timestamp NOT NULL DEFAULT now()
@@ -52,18 +51,49 @@ CREATE TABLE users (
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
 | `id` | `uuid` | PK | ユーザーID（UUID v4） |
-| `email` | `text` | NOT NULL, UNIQUE | ログイン用メール、テナント分離 |
-| `hashed_password` | `text` | NOT NULL | bcryptハッシュ（Phoenix デフォルト） |
 | `name` | `text` | NOT NULL | ユーザー表示名 |
+| `email` | `text` | NOT NULL, UNIQUE | ログイン用メール、テナント分離 |
 | `inserted_at` | `timestamp` | NOT NULL | 作成日時 |
 | `updated_at` | `timestamp` | NOT NULL | 更新日時 |
 
 **インデックス**:
 - `users_email_index` UNIQUE (email) - ログイン速度向上、重複防止
 
+
+### 2. accounts テーブル
+
+認証プロバイダーでのアカウントを管理します。
+
+```sql
+CREATE TABLE accounts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id text NOT NULL,
+  provider_id text NOT NULL,
+  inserted_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now(),
+  UNIQUE(provider_id, account_id)
+);
+```
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| `id` | `uuid` | PK | アカウントID |
+| `user_id` | `uuid` | NOT NULL, FK | 所有ユーザー。削除時CASCADE |
+| `account_id` | `text` | NOT NULL | OAuthプロバイダー側のユーザーID |
+| `provider_id` | `text` | NOT NULL | プロバイダー識別子（`"google"`, `"github"` など） |
+| `inserted_at` | `timestamp` | NOT NULL | 作成日時 |
+| `updated_at` | `timestamp` | NOT NULL | 更新日時 |
+
+**制約**:
+- `UNIQUE(provider_id, account_id)` - 同じプロバイダーの同じアカウントIDの重複防止
+
+**インデックス**:
+- `accounts_user_id_index` (user_id) - ユーザーの連携プロバイダー一覧取得
+
 ---
 
-### 2. workspaces テーブル
+### 3. workspaces テーブル
 
 各ユーザーのワークスペース（キャンバス）を管理します。1ユーザー = 複数ワークスペース。
 
@@ -94,7 +124,7 @@ CREATE TABLE workspaces (
 
 ---
 
-### 3. cards テーブル
+### 4. cards テーブル
 
 ワークスペース内のカード（アイデア）を管理します。
 
@@ -135,7 +165,7 @@ CREATE TABLE cards (
 
 ---
 
-### 4. collaborations テーブル（将来実装）
+### 5. collaborations テーブル（将来実装）
 
 ワークスペースの共有・協調編集権限を管理します。**Phase 2実装予定**。
 
@@ -197,6 +227,8 @@ CREATE TABLE collaborations (
 | テーブル | インデックス | 型 | カラム | 用途 |
 |---------|-------------|-----|--------|------|
 | `users` | `users_email_index` | UNIQUE | email | ログイン検索、重複防止 |
+| `accounts` | `accounts_user_id_index` | 通常 | user_id | ユーザーの連携プロバイダー一覧取得 |
+| `accounts` | `accounts_provider_id_account_id_index` | UNIQUE | (provider_id, account_id) | OAuthプロバイダー検索、重複防止 |
 | `workspaces` | `workspaces_user_id_index` | 通常 | user_id | ユーザーのワークスペース一覧取得 |
 | `cards` | `cards_workspace_id_index` | 通常 | workspace_id | ワークスペース内全カード取得 |
 | `cards` | `cards_workspace_id_z_index` | 複合 | (workspace_id, z) | Z順ソート時の高速化 |
@@ -216,6 +248,7 @@ CREATE TABLE collaborations (
 
 | FK | 参照先 | ON DELETE | 理由 |
 |----|--------|-----------|------|
+| `accounts.user_id` → `users.id` | users | CASCADE | ユーザー削除時にそのOAuth連携情報全削除 |
 | `workspaces.user_id` → `users.id` | users | CASCADE | ユーザー削除時にそのワークスペース全削除 |
 | `cards.workspace_id` → `workspaces.id` | workspaces | CASCADE | ワークスペース削除時にそのカード全削除 |
 | `collaborations.workspace_id` → `workspaces.id` | workspaces | CASCADE | ワークスペース削除時に共有情報全削除 |
@@ -228,6 +261,7 @@ CREATE TABLE collaborations (
 | テーブル | カラム | 理由 |
 |---------|--------|------|
 | `users` | email | ログインの一意性。メール重複防止 |
+| `accounts` | (provider_id, account_id) | 同じプロバイダーの同じアカウントの重複防止 |
 | `collaborations` | (workspace_id, user_id) | 同じワークスペースへの重複招待防止 |
 
 ---
@@ -240,9 +274,10 @@ CREATE TABLE collaborations (
 ```
 priv/repo/migrations/
 ├── 20260307_create_users.exs
-├── 20260308_create_workspaces.exs
-├── 20260309_create_cards.exs
-└── 20260310_create_collaborations.exs
+├── 20260308_create_accounts.exs
+├── 20260309_create_workspaces.exs
+├── 20260310_create_cards.exs
+└── 20260311_create_collaborations.exs
 ```
 
 ### Ectoマイグレーション例
@@ -255,12 +290,28 @@ defmodule CotoCoto.Repo.Migrations.CreateUsers do
     create table(:users, primary_key: false) do
       add :id, :binary_id, primary_key: true
       add :email, :string, null: false
-      add :hashed_password, :string, null: false
       add :name, :string, null: false
       timestamps(type: :utc_datetime)
     end
 
     create unique_index(:users, [:email])
+  end
+end
+
+defmodule CotoCoto.Repo.Migrations.CreateAccounts do
+  use Ecto.Migration
+
+  def change do
+    create table(:accounts, primary_key: false) do
+      add :id, :binary_id, primary_key: true
+      add :user_id, references(:users, type: :binary_id, on_delete: :delete_all), null: false
+      add :account_id, :string, null: false
+      add :provider_id, :string, null: false
+      timestamps(type: :utc_datetime)
+    end
+
+    create index(:accounts, [:user_id])
+    create unique_index(:accounts, [:provider_id, :account_id])
   end
 end
 ```
@@ -277,9 +328,9 @@ defmodule CotoCoto.Accounts.User do
 
   schema "users" do
     field :email, :string
-    field :hashed_password, :string
     field :name, :string
 
+    has_many :accounts, CotoCoto.Accounts.Account
     has_many :workspaces, CotoCoto.Workspaces.Workspace
     has_many :collaborations, CotoCoto.Workspaces.Collaboration
 
